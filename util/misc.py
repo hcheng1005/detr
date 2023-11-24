@@ -280,7 +280,7 @@ def _max_by_axis(the_list):
             maxes[index] = max(maxes[index], item)
     return maxes
 
-
+# NestedTensor，包括tensor和mask两个成员，tensor就是输入的图像。mask跟tensor同高宽但是单通道。
 class NestedTensor(object):
     def __init__(self, tensors, mask: Optional[Tensor]):
         self.tensors = tensors

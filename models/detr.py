@@ -317,17 +317,22 @@ def build(args):
         num_classes = 250
     device = torch.device(args.device)
 
-    backbone = build_backbone(args)
+    # 图像backbone 默认是“resnet50”
+    # backbone输出图像特征以及pos编码
+    backbone = build_backbone(args) 
 
+    # transformer模型构造
     transformer = build_transformer(args)
 
+    # 构造最后的DETR模型
     model = DETR(
         backbone,
         transformer,
         num_classes=num_classes,
-        num_queries=args.num_queries,
+        num_queries=args.num_queries, # 检出个数，默认是100，每次都会输出100个目标
         aux_loss=args.aux_loss,
     )
+    
     if args.masks:
         model = DETRsegm(model, freeze_detr=(args.frozen_weights is not None))
     matcher = build_matcher(args)

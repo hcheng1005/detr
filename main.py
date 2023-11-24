@@ -118,6 +118,7 @@ def main(args):
     np.random.seed(seed)
     random.seed(seed)
 
+    # 构造模型
     model, criterion, postprocessors = build_model(args)
     model.to(device)
 

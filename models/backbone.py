@@ -110,10 +110,15 @@ class Joiner(nn.Sequential):
 
 
 def build_backbone(args):
-    position_embedding = build_position_encoding(args)
+    #位置编码算法
+    position_embedding = build_position_encoding(args) 
     train_backbone = args.lr_backbone > 0
     return_interm_layers = args.masks
+    
+    # 图像backbone，默认是“resnet50”
     backbone = Backbone(args.backbone, train_backbone, return_interm_layers, args.dilation)
+    
+    # 将backbone和position_embedding联合在一起
     model = Joiner(backbone, position_embedding)
     model.num_channels = backbone.num_channels
     return model
