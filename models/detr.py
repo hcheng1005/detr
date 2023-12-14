@@ -34,8 +34,11 @@ class DETR(nn.Module):
         self.num_queries = num_queries
         self.transformer = transformer
         hidden_dim = transformer.d_model
+        # 分类网络
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        # 回归头（box中心位置 size）
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
+        # num_queries可以认为就是anchor个数
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
         self.backbone = backbone
@@ -58,17 +61,35 @@ class DETR(nn.Module):
         """
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
+        # 步骤一：图片输入backbone，得到image feature和pos-coding（位置编码）
+        # out: list{0: tensor=[bs,2048,19,26] + mask=[bs,19,26]}  经过backbone resnet50 block5输出的结果
+        # pos: list{0: [bs,256,19,26]}  位置编码
         features, pos = self.backbone(samples)
 
+        # src: Tensor [bs,2048,19,26]
+        # mask: Tensor [bs,19,26]
         src, mask = features[-1].decompose()
         assert mask is not None
+        
+        # 数据输入transformer进行前向传播
+        # self.input_proj(src) [bs,2048,19,26]->[bs,256,19,26]
+        # mask: False的区域是不需要进行注意力计算的
+        # self.query_embed.weight  类似于传统目标检测里面的anchor 这里设置了100个
+        # pos[-1]  位置编码  [bs, 256, 19, 26]
+        # hs: [6, bs, 100, 256]
         hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
 
+        # 分类 [6个decoder, bs, 100, 256] -> [6, bs, 100, 92(类别)]
         outputs_class = self.class_embed(hs)
+        # 回归 [6个decoder, bs, 100, 256] -> [6, bs, 100, 4]
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
-        if self.aux_loss:
+        if self.aux_loss:   # True
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord)
+        # dict: 3
+        # 0 pred_logits 分类头输出[bs, 100, 92(类别数)]
+        # 1 pred_boxes 回归头输出[bs, 100, 4]
+        # 3 aux_outputs list: 5  前5个decoder层输出 5个pred_logits[bs, 100, 92(类别数)] 和 5个pred_boxes[bs, 100, 4]
         return out
 
     @torch.jit.unused
